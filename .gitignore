@@ -1,0 +1,48 @@
+## Build outputs
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+[Rr]eleases/
+
+## Publish / pack artifacts
+publish/
+*.publish.xml
+*.nupkg
+*.snupkg
+
+## .NET / MSBuild user-specific files
+*.csproj.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.cache
+
+## JetBrains Rider / ReSharper
+.idea/
+*.DotSettings.user
+*.resharper
+_ReSharper*/
+
+## Visual Studio
+.vs/
+*.user
+
+## VS Code
+.vscode/
+*.code-workspace
+
+## Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## Rider / idea workspace (extra safety)
+.idea*/
