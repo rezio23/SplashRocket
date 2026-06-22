@@ -23,7 +23,7 @@ namespace SplashRocket
 
         public MainForm()
         {
-            Text = "SplashRocket";
+            Text = "SplashRocket by Vichhean Sombath";
             Size = new Size(560, 440);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = UiTheme.Background;
@@ -124,15 +124,24 @@ namespace SplashRocket
         private void RefreshTiles()
         {
             _appsPanel.Controls.Clear();
-            _statusLabel.Text = $"{_workspace.Apps.Count} app{(_workspace.Apps.Count == 1 ? "" : "s")}";
+            var selectedApps = _workspace.Apps.Where(a => a.IsSelected).ToList();
+            _statusLabel.Text = $"{selectedApps.Count} of {_workspace.Apps.Count} app{(_workspace.Apps.Count == 1 ? "" : "s")}";
 
             if (_workspace.Apps.Count == 0)
             {
+                _emptyLabel.Text = "Workspace is empty. Click Edit Workspace to add apps.";
                 _appsPanel.Controls.Add(_emptyLabel);
                 return;
             }
 
-            foreach (var app in _workspace.Apps)
+            if (selectedApps.Count == 0)
+            {
+                _emptyLabel.Text = "No apps selected. Click Edit Workspace to choose apps.";
+                _appsPanel.Controls.Add(_emptyLabel);
+                return;
+            }
+
+            foreach (var app in selectedApps)
             {
                 var icon = IconHelper.GetIconImage(app.Path, app.IconPath, 48);
                 var tile = new AppTile(app, icon);
@@ -191,9 +200,10 @@ namespace SplashRocket
 
         private void RunAllButton_Click(object? sender, EventArgs e)
         {
-            if (_workspace.Apps.Count == 0)
+            var selectedApps = _workspace.Apps.Where(a => a.IsSelected).ToList();
+            if (selectedApps.Count == 0)
             {
-                MessageBox.Show("Workspace is empty. Click 'Edit Workspace' to add apps.", "No apps",
+                MessageBox.Show("No apps are selected. Click 'Edit Workspace' to choose apps.", "No apps",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -202,7 +212,7 @@ namespace SplashRocket
                 button.Enabled = false;
 
             var failed = new List<string>();
-            foreach (var app in _workspace.Apps)
+            foreach (var app in selectedApps)
             {
                 try
                 {

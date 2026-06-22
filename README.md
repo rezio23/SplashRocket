@@ -1,6 +1,8 @@
 # SplashRocket
 
-![SplashRocket](image.png)
+<p align="center">
+  <img src="image.png" alt="SplashRocket" />
+</p>
 
 A lightweight Windows desktop launcher for organizing and running your favorite apps from one place.
 

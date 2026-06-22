@@ -34,7 +34,7 @@ namespace SplashRocket
             {
                 Name = workspace.Name,
                 Apps = workspace.Apps
-                    .Select(a => new AppItem { Name = a.Name, Path = a.Path, IconPath = a.IconPath })
+                    .Select(a => new AppItem { Name = a.Name, Path = a.Path, IconPath = a.IconPath, IsSelected = a.IsSelected })
                     .ToList()
             };
 
@@ -92,9 +92,11 @@ namespace SplashRocket
                 Font = UiTheme.BodyFont,
                 SmallImageList = _imageList,
                 MultiSelect = false,
+                CheckBoxes = true,
                 HeaderStyle = ColumnHeaderStyle.Nonclickable
             };
-            _appsList.Columns.Add("Name", 200);
+            _appsList.ItemChecked += AppsList_ItemChecked;
+            _appsList.Columns.Add("Name", 180);
             _appsList.Columns.Add("Path", 490);
 
             listPanel.Controls.Add(_appsList);
@@ -136,6 +138,7 @@ namespace SplashRocket
                 var item = new ListViewItem(app.Name, key);
                 item.SubItems.Add(app.Path);
                 item.Tag = app;
+                item.Checked = app.IsSelected;
                 _appsList.Items.Add(item);
             }
         }
@@ -251,6 +254,12 @@ namespace SplashRocket
             }
 
             return true;
+        }
+
+        private void AppsList_ItemChecked(object? sender, ItemCheckedEventArgs e)
+        {
+            if (e.Item.Tag is AppItem app)
+                app.IsSelected = e.Item.Checked;
         }
 
         private void SelectLast()
