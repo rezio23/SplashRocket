@@ -1,4 +1,4 @@
-using System.Collections.Generic;                                                                                                                                                 
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using SplashRocket.Models;
@@ -14,10 +14,10 @@ namespace SplashRocket.Services
             _filePath = filePath;
         }
 
-        public void Save(List<Workspace> workspaces)
+        public void Save(Workspace workspace)
         {
             var json = JsonSerializer.Serialize(
-                workspaces,
+                workspace,
                 new JsonSerializerOptions
                 {
                     WriteIndented = true
@@ -26,13 +26,31 @@ namespace SplashRocket.Services
             File.WriteAllText(_filePath, json);
         }
 
-        public List<Workspace> Load()
+        public Workspace Load()
         {
             if (!File.Exists(_filePath))
-                return new List<Workspace>();
+                return new Workspace();
 
             var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<List<Workspace>>(json) ?? new List<Workspace>();
+            if (string.IsNullOrWhiteSpace(json))
+                return new Workspace();
+
+            try
+            {
+                return JsonSerializer.Deserialize<Workspace>(json) ?? new Workspace();
+            }
+            catch
+            {
+                try
+                {
+                    var legacy = JsonSerializer.Deserialize<List<Workspace>>(json);
+                    return legacy?.Count > 0 ? legacy[0] : new Workspace();
+                }
+                catch
+                {
+                    return new Workspace();
+                }
+            }
         }
     }
 }
