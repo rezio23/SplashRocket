@@ -32,7 +32,7 @@ namespace SplashRocket
             MaximizeBox = false;
             MinimizeBox = false;
 
-            var dataDir = Path.Combine(AppContext.BaseDirectory, "Data");
+            var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SplashRocket");
             Directory.CreateDirectory(dataDir);
             _workspaceService = new WorkspaceService(Path.Combine(dataDir, "workspace.json"));
             _launcherService = new AppLauncherService();
