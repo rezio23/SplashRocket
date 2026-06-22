@@ -4,8 +4,11 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using SplashRocket.Controls;
+using SplashRocket.Helpers;
 using SplashRocket.Models;
 using SplashRocket.Services;
+using SplashRocket.UI;
 
 namespace SplashRocket
 {
@@ -14,14 +17,17 @@ namespace SplashRocket
         private readonly WorkspaceService _workspaceService;
         private readonly AppLauncherService _launcherService;
         private Workspace _workspace;
+        private Panel _appsPanel = null!;
+        private Label _statusLabel = null!;
+        private Label _emptyLabel = null!;
 
         public MainForm()
         {
-            Text = "Barahh Launcher";
-            Size = new Size(360, 360);
+            Text = "SplashRocket";
+            Size = new Size(560, 440);
             StartPosition = FormStartPosition.CenterScreen;
-            BackColor = Color.FromArgb(245, 247, 250);
-            Font = new Font("Segoe UI", 9F);
+            BackColor = UiTheme.Background;
+            Font = UiTheme.BodyFont;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -33,60 +39,157 @@ namespace SplashRocket
             _workspace = _workspaceService.Load();
 
             BuildUI();
+            RefreshTiles();
         }
 
         private void BuildUI()
         {
+            var headerPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 64,
+                BackColor = UiTheme.Background
+            };
+
             var title = new Label
             {
-                Text = "Barahh Launcher",
-                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(40, 44, 52),
+                Text = "SplashRocket",
+                Font = UiTheme.HeaderFont,
+                ForeColor = UiTheme.TextPrimary,
                 AutoSize = true,
-                Location = new Point(82, 32)
+                Location = new Point(24, 18)
             };
 
-            var runButton = CreateButton("Run", AppDialog.AccentColor, Color.White);
-            runButton.Location = new Point(80, 90);
-            runButton.Click += RunButton_Click;
+            _statusLabel = new Label
+            {
+                Text = "0 apps",
+                Font = UiTheme.BodyFont,
+                ForeColor = UiTheme.TextSecondary,
+                AutoSize = true,
+                Location = new Point(460, 24)
+            };
 
-            var editButton = CreateButton("Edit Workspace", AppDialog.AccentColor, Color.White);
-            editButton.Location = new Point(80, 152);
+            headerPanel.Controls.Add(title);
+            headerPanel.Controls.Add(_statusLabel);
+
+            _appsPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Padding = new Padding(24),
+                BackColor = UiTheme.Background
+            };
+            _appsPanel.Layout += AppsPanel_Layout;
+
+            _emptyLabel = new Label
+            {
+                Text = "Workspace is empty. Click Edit Workspace to add apps.",
+                Font = UiTheme.BodyFont,
+                ForeColor = UiTheme.TextSecondary,
+                AutoSize = true,
+                Anchor = AnchorStyles.None
+            };
+
+            var footerPanel = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 68,
+                BackColor = UiTheme.Background
+            };
+
+            var runAllButton = UiTheme.CreatePrimaryButton("Run All", 120, 40);
+            runAllButton.Location = new Point(24, 14);
+            runAllButton.Click += RunAllButton_Click;
+
+            var editButton = UiTheme.CreateSecondaryButton("Edit Workspace", 140, 40);
+            editButton.Location = new Point(154, 14);
             editButton.Click += EditButton_Click;
 
-            var cancelButton = CreateButton("Cancel", Color.White, Color.FromArgb(40, 44, 52), true);
-            cancelButton.Location = new Point(80, 214);
-            cancelButton.Click += (s, e) => Close();
+            var exitButton = UiTheme.CreateSecondaryButton("Exit", 100, 40);
+            exitButton.Location = new Point(420, 14);
+            exitButton.Click += (s, e) => Close();
 
-            Controls.Add(title);
-            Controls.Add(runButton);
-            Controls.Add(editButton);
-            Controls.Add(cancelButton);
+            footerPanel.Controls.Add(runAllButton);
+            footerPanel.Controls.Add(editButton);
+            footerPanel.Controls.Add(exitButton);
 
-            AcceptButton = runButton;
-            CancelButton = cancelButton;
+            Controls.Add(_appsPanel);
+            Controls.Add(footerPanel);
+            Controls.Add(headerPanel);
+
+            AcceptButton = runAllButton;
+            CancelButton = exitButton;
         }
 
-        private Button CreateButton(string text, Color backColor, Color foreColor, bool bordered = false)
+        private void RefreshTiles()
         {
-            var button = new Button
+            _appsPanel.Controls.Clear();
+            _statusLabel.Text = $"{_workspace.Apps.Count} app{(_workspace.Apps.Count == 1 ? "" : "s")}";
+
+            if (_workspace.Apps.Count == 0)
             {
-                Text = text,
-                Width = 200,
-                Height = 46,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = backColor,
-                ForeColor = foreColor,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            button.FlatAppearance.BorderSize = bordered ? 1 : 0;
-            if (bordered)
-                button.FlatAppearance.BorderColor = Color.FromArgb(220, 224, 230);
-            return button;
+                _appsPanel.Controls.Add(_emptyLabel);
+                return;
+            }
+
+            foreach (var app in _workspace.Apps)
+            {
+                var icon = IconHelper.GetIconImage(app.Path, app.IconPath, 48);
+                var tile = new AppTile(app, icon);
+                tile.Click += (s, e) => LaunchApp(app);
+                tile.DoubleClick += (s, e) => LaunchApp(app);
+                _appsPanel.Controls.Add(tile);
+            }
         }
 
-        private void RunButton_Click(object? sender, EventArgs e)
+        private void AppsPanel_Layout(object? sender, LayoutEventArgs e)
+        {
+            if (_appsPanel.Controls.Count == 0)
+                return;
+
+            if (_appsPanel.Controls.Count == 1 && _appsPanel.Controls[0] == _emptyLabel)
+            {
+                _emptyLabel.Location = new Point(
+                    (_appsPanel.ClientSize.Width - _emptyLabel.Width) / 2,
+                    (_appsPanel.ClientSize.Height - _emptyLabel.Height) / 2);
+                return;
+            }
+
+            const int tileWidth = 132;
+            const int tileHeight = 112;
+            const int margin = 24;
+
+            var availableWidth = _appsPanel.ClientSize.Width - _appsPanel.Padding.Horizontal;
+            var columns = Math.Max(1, availableWidth / (tileWidth + margin));
+            var totalRowWidth = columns * tileWidth + (columns - 1) * margin;
+            var startX = (_appsPanel.ClientSize.Width - totalRowWidth) / 2;
+            var startY = _appsPanel.Padding.Top;
+
+            for (int i = 0; i < _appsPanel.Controls.Count; i++)
+            {
+                var control = _appsPanel.Controls[i];
+                var row = i / columns;
+                var col = i % columns;
+                var x = startX + col * (tileWidth + margin);
+                var y = startY + row * (tileHeight + margin);
+                control.Location = new Point(x, y);
+            }
+        }
+
+        private void LaunchApp(AppItem app)
+        {
+            try
+            {
+                _launcherService.Run(app.Path);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{app.Name}: {ex.Message}", "Failed to launch",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void RunAllButton_Click(object? sender, EventArgs e)
         {
             if (_workspace.Apps.Count == 0)
             {
@@ -94,6 +197,9 @@ namespace SplashRocket
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+
+            if (sender is Button button)
+                button.Enabled = false;
 
             var failed = new List<string>();
             foreach (var app in _workspace.Apps)
@@ -108,6 +214,9 @@ namespace SplashRocket
                 }
             }
 
+            if (sender is Button b)
+                b.Enabled = true;
+
             if (failed.Count > 0)
             {
                 MessageBox.Show(string.Join(Environment.NewLine, failed), "Some apps failed to launch",
@@ -121,6 +230,8 @@ namespace SplashRocket
             if (editor.ShowDialog() == DialogResult.OK)
             {
                 _workspace = _workspaceService.Load();
+                IconHelper.ClearCache();
+                RefreshTiles();
             }
         }
     }

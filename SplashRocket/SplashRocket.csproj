@@ -8,6 +8,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <AssemblyName>SplashRocket</AssemblyName>
         <RootNamespace>SplashRocket</RootNamespace>
+        <ApplicationDisplayName>SplashRocket</ApplicationDisplayName>
     </PropertyGroup>
 
     <ItemGroup>

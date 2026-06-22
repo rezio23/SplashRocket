@@ -1,44 +1,55 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using SplashRocket.Helpers;
+using SplashRocket.UI;
 
 namespace SplashRocket
 {
     public class AppDialog : Form
     {
-        public static readonly Color AccentColor = Color.FromArgb(97, 175, 239);
-
         private readonly List<(Label Label, TextBox TextBox)> _fields = new();
+        private PictureBox _iconPreview = null!;
+        private readonly string _defaultName;
 
         public AppDialog(string title, params (string Label, string DefaultValue)[] fields)
         {
             Text = title;
-            Width = 460;
-            Height = 140 + fields.Length * 64;
+            Width = 520;
+            Height = 170 + fields.Length * 64;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
-            BackColor = Color.White;
+            BackColor = UiTheme.Surface;
             MaximizeBox = false;
             MinimizeBox = false;
-            Font = new Font("Segoe UI", 9F);
+            Font = UiTheme.BodyFont;
+
+            var nameField = fields.FirstOrDefault(f => f.Label == "Name");
+            _defaultName = nameField.DefaultValue;
 
             int y = 18;
             foreach (var field in fields)
             {
+                var labelText = field.Label == "Icon path" ? "Custom icon (optional)" : field.Label;
                 var label = new Label
                 {
-                    Text = field.Label,
+                    Text = labelText,
                     Location = new Point(18, y),
-                    AutoSize = true
+                    AutoSize = true,
+                    ForeColor = UiTheme.TextPrimary
                 };
 
                 var textBox = new TextBox
                 {
                     Text = field.DefaultValue,
-                    Width = 408,
-                    Location = new Point(18, y + 22)
+                    Width = 400,
+                    Location = new Point(18, y + 22),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = UiTheme.Surface,
+                    ForeColor = UiTheme.TextPrimary
                 };
 
                 Controls.Add(label);
@@ -48,33 +59,25 @@ namespace SplashRocket
                 y += 64;
             }
 
-            var okButton = new Button
+            _iconPreview = new PictureBox
             {
-                Text = "Save",
-                DialogResult = DialogResult.OK,
-                Width = 90,
-                Height = 34,
-                Location = new Point(336, y + 6),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = AccentColor,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                Size = new Size(48, 48),
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Location = new Point(430, 18),
+                BackColor = Color.Transparent,
+                Visible = false
             };
-            okButton.FlatAppearance.BorderSize = 0;
+            Controls.Add(_iconPreview);
 
-            var cancelButton = new Button
-            {
-                Text = "Cancel",
-                DialogResult = DialogResult.Cancel,
-                Width = 90,
-                Height = 34,
-                Location = new Point(240, y + 6),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(40, 44, 52)
-            };
-            cancelButton.FlatAppearance.BorderColor = Color.FromArgb(220, 224, 230);
-            cancelButton.FlatAppearance.BorderSize = 1;
+            UpdateIconPreview();
+
+            var okButton = UiTheme.CreatePrimaryButton("Save", 90, 34);
+            okButton.Location = new Point(396, y + 6);
+            okButton.DialogResult = DialogResult.OK;
+
+            var cancelButton = UiTheme.CreateSecondaryButton("Cancel", 90, 34);
+            cancelButton.Location = new Point(300, y + 6);
+            cancelButton.DialogResult = DialogResult.Cancel;
 
             Controls.Add(cancelButton);
             Controls.Add(okButton);
@@ -84,7 +87,8 @@ namespace SplashRocket
 
         public void AddBrowseButton(string fieldLabel, bool image)
         {
-            var field = _fields.FirstOrDefault(f => f.Label.Text == fieldLabel);
+            var field = _fields.FirstOrDefault(f => f.Label.Text == fieldLabel ||
+                (fieldLabel == "Icon path" && f.Label.Text == "Custom icon (optional)"));
             if (field.Label == null)
                 return;
 
@@ -95,17 +99,33 @@ namespace SplashRocket
                 Height = 24,
                 Location = new Point(field.TextBox.Right - 34, field.TextBox.Top),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(240, 242, 245)
+                BackColor = UiTheme.Background,
+                ForeColor = UiTheme.TextPrimary,
+                Font = UiTheme.BodyFont
             };
             browse.FlatAppearance.BorderSize = 1;
-            browse.FlatAppearance.BorderColor = Color.FromArgb(220, 224, 230);
+            browse.FlatAppearance.BorderColor = UiTheme.Border;
             browse.Click += (s, e) =>
             {
                 using var dialog = image
                     ? new OpenFileDialog { Filter = "Image files|*.png;*.jpg;*.jpeg;*.ico;*.bmp|All files|*.*" }
                     : new OpenFileDialog { Filter = "All files|*.*" };
-                if (dialog.ShowDialog() == DialogResult.OK)
-                    field.TextBox.Text = dialog.FileName;
+                if (dialog.ShowDialog() != DialogResult.OK)
+                    return;
+
+                field.TextBox.Text = dialog.FileName;
+
+                if (fieldLabel == "Path")
+                {
+                    var nameField = _fields.FirstOrDefault(f => f.Label.Text == "Name");
+                    if (nameField.Label != null &&
+                        (string.IsNullOrWhiteSpace(nameField.TextBox.Text) || nameField.TextBox.Text == _defaultName))
+                    {
+                        nameField.TextBox.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
+                    }
+                }
+
+                UpdateIconPreview();
             };
 
             field.TextBox.Width -= 40;
@@ -114,8 +134,21 @@ namespace SplashRocket
 
         public string GetValue(string fieldLabel)
         {
-            var field = _fields.FirstOrDefault(f => f.Label.Text == fieldLabel);
+            var field = _fields.FirstOrDefault(f => f.Label.Text == fieldLabel ||
+                (fieldLabel == "Icon path" && f.Label.Text == "Custom icon (optional)"));
             return field.TextBox?.Text ?? string.Empty;
+        }
+
+        private void UpdateIconPreview()
+        {
+            var pathField = _fields.FirstOrDefault(f => f.Label.Text == "Path").TextBox;
+            var iconField = _fields.FirstOrDefault(f => f.Label.Text == "Custom icon (optional)").TextBox;
+            if (pathField == null)
+                return;
+
+            var image = IconHelper.GetIconImage(pathField.Text, iconField?.Text, 48);
+            _iconPreview.Image = image;
+            _iconPreview.Visible = true;
         }
     }
 }
